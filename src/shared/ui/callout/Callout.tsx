@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 
-type Kind = 'info' | 'tip' | 'warning' | 'danger' | 'rule';
+type Kind = 'info' | 'tip' | 'warning' | 'danger' | 'rule' | 'key';
 
 const labels: Record<Kind, string> = {
+  key: 'Главное',
   info: 'Заметка',
   tip: 'Подсказка',
   warning: 'Осторожно',

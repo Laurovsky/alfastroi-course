@@ -1,0 +1,68 @@
+/**
+ * Статьи Доки (https://doka.guide), из которых в уроках цитируются объяснения.
+ * Тексты Доки распространяются по лицензии CC BY-NC-SA 4.0: при цитировании указываем
+ * статью, авторов и лицензию — это делает компонент <Doka from="…">.
+ */
+export interface DokaArticle {
+  title: string;
+  authors: string[];
+}
+
+export const dokaArticles: Record<string, DokaArticle> = {
+  'js/abort-controller': { title: 'AbortController', authors: ['Игорь Теплостанский'] },
+  'js/array-shift': { title: '.shift()', authors: ['Viktar Nezhbart'] },
+  'js/array-sort': { title: '.sort()', authors: ['Максим Марчуков'] },
+  'js/array-tosorted': { title: '.toSorted()', authors: ['Алексей Фомин'] },
+  'js/async-await': { title: 'async/await', authors: ['Николай Лопин'] },
+  'js/cleartimeout': { title: 'clearTimeout()', authors: ['Егор Огарков'] },
+  'js/closures': { title: 'Области видимости', authors: ['Саша Беспоясов'] },
+  'js/debounce': { title: 'Debounce на примере формы поиска', authors: ['Саша Беспоясов'] },
+  'js/errors': { title: 'Error и стандартные ошибки', authors: ['Алекс Стегура', 'Alex Baumgertner'] },
+  'js/event-focus': { title: 'focus', authors: ['Лира'] },
+  'js/fetch': { title: 'fetch()', authors: ['Егор Огарков'] },
+  'js/function-context': { title: 'this: контекст выполнения функций', authors: ['Саша Беспоясов'] },
+  'js/local-storage': { title: 'localStorage', authors: ['Павел Минеев'] },
+  'js/map': { title: 'Map', authors: ['Виталий Баев'] },
+  'js/modules': { title: 'Модули, import/export', authors: ['Саша Беспоясов'] },
+  'js/number-isfinite': { title: 'Number.isFinite()', authors: ['Егор Огарков'] },
+  'js/promise': { title: 'Promise', authors: ['Николай Лопин'] },
+  'js/promise-finally': { title: '.finally()', authors: ['Николай Лопин'] },
+  'js/promise-race': { title: 'Promise.race()', authors: ['Рома Агарков'] },
+  'js/recursion': { title: 'Рекурсия', authors: ['Саша Беспоясов'] },
+  'js/ref-type-vs-value-type': { title: 'Хранение по ссылке и по значению', authors: ['Егор Огарков'] },
+  'js/set': { title: 'Set', authors: ['Николай Лопин'] },
+  'js/settimeout': { title: 'setTimeout()', authors: ['Егор Огарков'] },
+  'js/shallow-or-deep-clone': { title: 'Поверхностное и глубокое копирование', authors: ['Николай Лопин'] },
+  'js/spread': { title: 'Спред-синтаксис ...', authors: ['Николай Лопин'] },
+  'js/string-trim': { title: '.trim()', authors: ['Алекс Рассудихин'] },
+  'js/throttle': { title: 'Throttle на примере изменения страницы при прокрутке', authors: ['Саша Беспоясов'] },
+  'js/try-catch': { title: 'try...catch', authors: ['Егор Огарков'] },
+  'js/use-strict': { title: 'use strict', authors: ['Егор Огарков'] },
+  'js/web-workers': { title: 'Web Workers', authors: ['Марсель Ахметшин'] },
+  'tools/algorithm-complexity': { title: 'Как анализировать алгоритмы?', authors: ['Евгения Шевлякова'] },
+  'tools/api': { title: 'Что такое API', authors: ['Саша Беспоясов'] },
+  'tools/architecture-and-design-patterns': { title: 'Архитектура и паттерны проектирования', authors: ['Саша Беспоясов'] },
+  'tools/architecture-data-flow': { title: 'Организация потоков данных', authors: ['Саша Беспоясов'] },
+  'tools/browsers-storages': { title: 'Хранение данных в браузере', authors: ['Павел Минеев'] },
+  'tools/ci-cd': { title: 'Что такое CI/CD', authors: ['Игорь Коровченко'] },
+  'tools/clean-architecture': { title: 'Трёхслойная архитектура', authors: ['Саша Беспоясов'] },
+  'tools/code-review': { title: 'Что такое код-ревью', authors: ['Игорь Камышев'] },
+  'tools/design-patterns-behaviorial': { title: 'Поведенческие паттерны проектирования', authors: ['Саша Беспоясов'] },
+  'tools/fp': { title: 'Функциональное программирование', authors: ['Саша Беспоясов'] },
+  'tools/github-actions': { title: 'GitHub Actions', authors: ['Игорь Коровченко'] },
+  'tools/how-to-simplify-tests': { title: 'Как упростить тестирование', authors: ['Саша Беспоясов'] },
+  'tools/how-to-test-and-why': { title: 'Как и зачем писать тесты', authors: ['Саша Беспоясов'] },
+  'tools/http-protocol': { title: 'Протокол HTTP', authors: ['Игорь Коровченко'] },
+  'tools/integration-and-system-testing': { title: 'Интеграционное и системное тестирование', authors: ['Саша Беспоясов'] },
+  'tools/json': { title: 'JSON', authors: ['Алекс Стегура'] },
+  'tools/nodejs': { title: 'Что такое Node.js', authors: ['Игорь Камышев'] },
+  'tools/oop': { title: 'Объектно-ориентированное программирование', authors: ['Саша Беспоясов'] },
+  'tools/package-managers': { title: 'Пакетные менеджеры', authors: ['Игорь Камышев'] },
+  'tools/reactivity': { title: 'Реактивность в программировании', authors: ['Егор Огарков'] },
+  'tools/static-analysis': { title: 'Статический анализ кода', authors: ['Игорь Камышев'] },
+  'tools/static-types': { title: 'TypeScript и статическая типизация', authors: ['Игорь Камышев'] },
+  'tools/tdd': { title: 'Разработка через тестирование (TDD)', authors: ['Саша Беспоясов'] },
+  'tools/technical-debt': { title: 'Что такое технический долг', authors: ['Саша Беспоясов'] },
+  'tools/testing-and-fake-objects': { title: 'Фиктивные объекты и данные, моки, стабы', authors: ['Саша Беспоясов'] },
+  'tools/web-security': { title: 'Безопасность веб-приложений и распространённые атаки', authors: ['Саша Беспоясов'] },
+};

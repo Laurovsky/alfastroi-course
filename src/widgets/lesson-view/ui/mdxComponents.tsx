@@ -9,6 +9,19 @@ import { RequestTrace } from '@/features/trace-request';
 import { Callout } from '@/shared/ui/callout';
 import { Code, Source } from '@/shared/ui/code';
 import { Diagram } from '@/shared/ui/diagram';
+import { DokaQuote } from '@/shared/ui/doka-quote';
+import { getDokaArticle } from '@/entities/course';
+
+/** `<Doka from="tools/tdd" section="…">дословный фрагмент</Doka>` — цитата с атрибуцией из реестра. */
+function Doka({ from, section, children }: { from: string; section?: string; children: ReactNode }) {
+  const article = getDokaArticle(from);
+  if (!article) return <div className="callout callout--danger">Статья Доки «{from}» не найдена в реестре</div>;
+  return (
+    <DokaQuote path={from} title={article.title} authors={article.authors} section={section}>
+      {children}
+    </DokaQuote>
+  );
+}
 
 function textOf(node: ReactNode): string {
   if (typeof node === 'string') return node;
@@ -36,6 +49,7 @@ export const mdxComponents: MDXComponents = {
   Code,
   Source,
   Diagram,
+  Doka,
   Quiz,
   Exercise,
   FsdChecker,

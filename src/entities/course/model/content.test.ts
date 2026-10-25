@@ -6,6 +6,7 @@ import { mdxOptions } from '../../../../mdx.config';
 import { excerpt } from '@/shared/lib/excerpt';
 import { getExercise } from '@/entities/exercise';
 import { allLessons } from './curriculum';
+import { getDokaArticle } from './doka';
 
 /**
  * Целостность контента: курс тоже покрыт тестами.
@@ -53,6 +54,15 @@ describe('уроки', () => {
     const compiled = String(await compile(source, mdxOptions));
     const tables = compiled.match(/\(_components\.table,/g)?.length ?? 0;
     expect(tables).toBe(expected);
+  });
+
+  it.each(files)('%s: цитаты <Doka> ссылаются на статьи из реестра', (file) => {
+    for (const [, from] of read(file).matchAll(/<Doka from="([^"]+)"/g)) expect(getDokaArticle(from), from).toBeTruthy();
+  });
+
+  it('в каждом уроке есть хотя бы одна цитата из Доки и блок «Главное»', () => {
+    const missing = files.filter((f) => !read(f).includes('<Doka ') || !read(f).includes('kind="key"'));
+    expect(missing).toEqual([]);
   });
 
   it('id квизов уникальны по всему курсу', () => {
