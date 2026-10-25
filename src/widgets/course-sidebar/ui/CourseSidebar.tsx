@@ -17,6 +17,16 @@ export function CourseSidebar({ onNavigate }: { onNavigate?: () => void }) {
         <div className="progress__bar" style={{ width: `${percent}%` }} />
       </div>
       <p className="sidebar__percent">Пройдено {percent}%</p>
+      <NavLink
+        to="/roadmap"
+        onClick={onNavigate}
+        className={({ isActive }) => `sidebar__link sidebar__roadmap${isActive ? ' sidebar__link--active' : ''}`}
+      >
+        <span className="sidebar__mark" aria-hidden>
+          🗺
+        </span>
+        Дорожная карта
+      </NavLink>
       {curriculum.map((module, mi) => (
         <section key={module.id} className="sidebar__module">
           <h2 className="sidebar__module-title">

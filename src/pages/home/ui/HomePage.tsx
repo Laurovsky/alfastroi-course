@@ -33,9 +33,14 @@ export function HomePage() {
             <strong>~{Math.round(minutes / 60)}</strong> часов
           </span>
         </div>
-        <Link className="btn btn--primary btn--lg" to={`/lesson/${firstOpen.id}`}>
-          {completed.length ? 'Продолжить' : 'Начать'}: {firstOpen.title} →
-        </Link>
+        <div className="hero__actions">
+          <Link className="btn btn--primary btn--lg" to={`/lesson/${firstOpen.id}`}>
+            {completed.length ? 'Продолжить' : 'Начать'}: {firstOpen.title} →
+          </Link>
+          <Link className="btn btn--lg" to="/roadmap">
+            🗺 Дорожная карта
+          </Link>
+        </div>
         {(completed.length > 0 || passed.length > 0) && (
           <p className="muted">
             Пройдено уроков: {completed.length}/{allLessons.length}, решено упражнений: {passed.length}/{listExercises().length}.{' '}

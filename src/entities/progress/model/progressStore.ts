@@ -9,15 +9,18 @@ interface ProgressState {
   quizAnswers: Record<string, number>;
   /** id упражнения → черновик кода ученика. */
   drafts: Record<string, string>;
+  /** Пути статей Доки, отмеченных прочитанными на дорожной карте. */
+  readArticles: string[];
   completeLesson: (id: string) => void;
   uncompleteLesson: (id: string) => void;
   markExercisePassed: (id: string) => void;
   answerQuiz: (id: string, option: number) => void;
   saveDraft: (id: string, code: string) => void;
+  toggleArticle: (path: string) => void;
   reset: () => void;
 }
 
-const initial = { completedLessons: [], passedExercises: [], quizAnswers: {}, drafts: {} };
+const initial = { completedLessons: [], passedExercises: [], quizAnswers: {}, drafts: {}, readArticles: [] };
 
 const addUnique = (list: string[], id: string) => (list.includes(id) ? list : [...list, id]);
 
@@ -34,6 +37,10 @@ export const useProgressStore = create<ProgressState>()(
       markExercisePassed: (id) => set((s) => ({ passedExercises: addUnique(s.passedExercises, id) })),
       answerQuiz: (id, option) => set((s) => ({ quizAnswers: { ...s.quizAnswers, [id]: option } })),
       saveDraft: (id, code) => set((s) => ({ drafts: { ...s.drafts, [id]: code } })),
+      toggleArticle: (path) =>
+        set((s) => ({
+          readArticles: s.readArticles.includes(path) ? s.readArticles.filter((x) => x !== path) : [...s.readArticles, path],
+        })),
       reset: () => set(initial),
     }),
     { name: 'alfastroi-course-progress', version: 1, storage: createJSONStorage(() => safeStorage) },

@@ -438,6 +438,265 @@ code {
   font-size: 14px;
 }
 
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sidebar__roadmap {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Roadmap ---------- */
+
+.roadmap-page {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.roadmap-page__head h1 {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 4vw, 38px);
+  letter-spacing: -0.01em;
+}
+
+.roadmap-page__head p {
+  color: var(--muted);
+}
+
+.progress--wide {
+  height: 8px;
+  margin: 16px 0 6px;
+}
+
+.stage-strip {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  margin: 20px 0 24px;
+  padding: 10px 0;
+  overflow-x: auto;
+  background: var(--bg);
+}
+
+@media (max-width: 900px) {
+  .stage-strip {
+    top: 52px;
+  }
+}
+
+.stage-strip__item {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.stage-strip__num {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.stage-strip__level {
+  color: var(--muted);
+}
+
+.stage-strip__item--done {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.stage-strip__item--done .stage-strip__num {
+  color: var(--ok);
+}
+
+.stage-strip__item--progress {
+  border-color: var(--accent);
+}
+
+.stage-strip__item--current {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.stages {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 44px;
+  list-style: none;
+}
+
+/* Вертикальная линия пути */
+.stages::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 15px;
+  width: 2px;
+  background: var(--border);
+}
+
+.stage {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.stage__dot {
+  position: absolute;
+  top: 14px;
+  left: -44px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.stage--done .stage__dot {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+
+.stage--progress .stage__dot,
+.stage--current .stage__dot {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stage__card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  scroll-margin-top: 90px;
+}
+
+.stage--current .stage__card {
+  border-color: var(--accent);
+}
+
+.stage__summary {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.stage__summary::-webkit-details-marker {
+  display: none;
+}
+
+.stage__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 13px;
+}
+
+.stage__title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.chip-level,
+.chip-here {
+  padding: 1px 8px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chip-level {
+  background: var(--surface-2);
+}
+
+.chip-here {
+  background: var(--accent);
+  color: #fff;
+}
+
+.stage__card > :not(summary) {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.stage__card h3 {
+  margin-top: 16px;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.stage__why {
+  margin-top: 0;
+  color: var(--muted);
+}
+
+.stage__skills,
+.stage__lessons,
+.stage__tasks {
+  padding-left: 22px;
+}
+
+.stage__lessons .is-done a {
+  color: var(--muted);
+}
+
+.stage__reading {
+  padding: 0;
+  list-style: none;
+}
+
+.stage__reading li {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stage__reading .check {
+  margin: 4px 6px 4px 0;
+}
+
+.stage__checkpoint {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.stage__checkpoint p {
+  margin: 4px 0 0;
+}
+
 /* ---------- Lesson ---------- */
 
 .lesson {

@@ -6,6 +6,7 @@ import { NotFoundPage } from '@/pages/not-found';
 
 // Страница урока тянет редактор и подсветку — грузим её лениво, как страницы в Альфастрой.
 const LessonPage = lazy(() => import('@/pages/lesson').then((m) => ({ default: m.LessonPage })));
+const RoadmapPage = lazy(() => import('@/pages/roadmap').then((m) => ({ default: m.RoadmapPage })));
 
 function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -24,6 +25,7 @@ function Layout() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/lesson/:lessonId" element={<LessonPage />} />
+            <Route path="/roadmap" element={<RoadmapPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
