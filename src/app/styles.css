@@ -534,6 +534,20 @@ code {
   background: var(--surface-2);
 }
 
+/* Идентификаторы в ячейках не рвём посимвольно: узкая таблица прокручивается внутри .table-wrap. */
+.prose td code,
+.prose th code {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .prose table {
+    min-width: 720px;
+    font-size: 14px;
+  }
+}
+
 /* ---------- Code ---------- */
 
 .code {

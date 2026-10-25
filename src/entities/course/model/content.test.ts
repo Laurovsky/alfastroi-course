@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { compile } from '@mdx-js/mdx';
+import { mdxOptions } from '../../../../mdx.config';
 import { excerpt } from '@/shared/lib/excerpt';
 import { getExercise } from '@/entities/exercise';
 import { allLessons } from './curriculum';
@@ -42,6 +44,15 @@ describe('уроки', () => {
 
   it.each(files)('%s: упражнения существуют', (file) => {
     for (const [, id] of read(file).matchAll(/<Exercise id="([^"]+)"/g)) expect(getExercise(id), id).toBeTruthy();
+  });
+
+  it.each(files)('%s: markdown-таблицы компилируются в <table>', async (file) => {
+    const source = read(file);
+    // Разделитель заголовка таблицы GFM: строка вида |---|---|
+    const expected = source.match(/^\|[\s:|-]+\|\s*$/gm)?.length ?? 0;
+    const compiled = String(await compile(source, mdxOptions));
+    const tables = compiled.match(/\(_components\.table,/g)?.length ?? 0;
+    expect(tables).toBe(expected);
   });
 
   it('id квизов уникальны по всему курсу', () => {
