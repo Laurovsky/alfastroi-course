@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findSuspiciousChars, locateSyntaxError } from './diagnose';
+import { describeProblems, findSuspiciousChars, locateSyntaxError } from './diagnose';
 import { runSuite } from './runner';
 
 const solution = `function formatDisplayName(lastName, firstName, middleName) {
@@ -45,6 +45,25 @@ describe('locateSyntaxError', () => {
   it('возвращает строку и столбец синтаксической ошибки', () => {
     expect(locateSyntaxError('const a = (1 +\n  2')).toMatchObject({ line: 2 });
     expect(locateSyntaxError(solution)).toBeNull();
+  });
+});
+
+describe('подсказка про синтаксис TypeScript', () => {
+  it('узнаёт non-null assertion n![0]', () => {
+    const lines = describeProblems(solution.replace('n[0]', 'n![0]'), { syntax: true }).join('\n');
+    expect(lines).toContain('строка 5');
+    expect(lines).toContain('TypeScript');
+    expect(lines).toContain('уберите «!»');
+  });
+
+  it('узнаёт аннотацию типа у параметра', () => {
+    const lines = describeProblems('function f(lastName: string) { return lastName }', { syntax: true }).join('\n');
+    expect(lines).toContain('TypeScript');
+    expect(lines).toContain(': string');
+  });
+
+  it('не выдумывает TypeScript там, где его нет', () => {
+    expect(describeProblems('const a = (1 +', { syntax: true }).join('\n')).not.toContain('TypeScript');
   });
 });
 

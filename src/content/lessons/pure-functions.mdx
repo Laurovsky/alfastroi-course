@@ -182,8 +182,19 @@ console.log(nums === sortedNums)
 
 Реализуйте `formatDisplayName` сами. Не подглядывайте в код выше — пусть ведут тесты.
 
-<Exercise id="format-display-name" />
+<Callout kind="warning" title="Упражнения — на JavaScript, код проекта — на TypeScript">
 
-<Callout kind="info" title="Про язык упражнений">
-Упражнения пишутся на JavaScript: так их можно выполнить прямо в браузере. Проект написан на TypeScript, но TypeScript добавляет только типы — логика та же. Попробуйте мысленно расставить типы: `(lastName: string, firstName: string, middleName?: string | null) => string`.
+Упражнения выполняются прямо в браузере как обычный JavaScript. Код Альфастрой в уроках — TypeScript, и если переписать его дословно, получится `SyntaxError`. Уберите всё, что относится к типам:
+
+| TypeScript (в уроке) | JavaScript (в упражнении) |
+|---|---|
+| `function f(lastName: string, middleName?: string \| null): string` | `function f(lastName, middleName)` |
+| `n![0]` — «точно не null» (non-null assertion) | `n[0]` |
+| `value as number` | `value` |
+| `interface User { … }`, `type Role = …` | удалить целиком |
+
+Логика при этом та же: TypeScript только добавляет проверку типов до запуска (урок 1.3).
+
 </Callout>
+
+<Exercise id="format-display-name" />

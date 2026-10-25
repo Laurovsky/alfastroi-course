@@ -977,6 +977,12 @@ code {
   white-space: pre-line;
 }
 
+.exercise__lang {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .exercise__actions,
 .sim-buttons {
   display: flex;

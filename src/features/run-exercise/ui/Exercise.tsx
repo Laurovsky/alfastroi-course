@@ -48,6 +48,10 @@ export function Exercise({ id }: { id: string }) {
         ))}
       </div>
 
+      <p className="exercise__lang">
+        Пишите на JavaScript: без типов TypeScript (<code>: string</code>, <code>n!</code>, <code>as</code>), которые есть в коде проекта.
+      </p>
+
       <CodeEditor value={code} onChange={(v) => saveDraft(exercise.id, v)} label={`Код упражнения ${exercise.title}`} />
 
       <div className="exercise__actions">

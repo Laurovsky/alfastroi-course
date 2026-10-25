@@ -109,6 +109,25 @@ export function locateSyntaxError(code: string): SyntaxLocation | null {
   }
 }
 
+/**
+ * Код Альфастрой — TypeScript, упражнения — JavaScript. Если ученик переписал код
+ * из урока вместе с типами, подсказываем, какую TypeScript-конструкцию убрать.
+ * Смотрим только на строку с синтаксической ошибкой, чтобы не путать с тернарником или объектом.
+ */
+function typescriptHint(line: string): string | null {
+  const nonNull = /([\w)\]]+)!(?=[.[(])/.exec(line);
+  if (nonNull)
+    return `«${nonNull[1]}!» — это non-null assertion из TypeScript («точно не null»). В JavaScript такой записи нет: уберите «!»`;
+  const param = /[(,]\s*\w+\??\s*(:\s*[\w<>[\]|' ]+?)\s*(?=[,)=])/.exec(line);
+  if (param) return `«${param[1].trim()}» — аннотация типа из TypeScript. В JavaScript типов нет: удалите «${param[1].trim()}»`;
+  const returnType = /\)\s*(:\s*[\w<>[\]| ]+?)\s*(?=\{|=>)/.exec(line);
+  if (returnType) return `«${returnType[1].trim()}» — тип результата из TypeScript. В JavaScript удалите его`;
+  const cast = /\bas\s+[A-Z][\w<>[\]]*/.exec(line);
+  if (cast) return `«${cast[0]}» — приведение типа из TypeScript. В JavaScript удалите его`;
+  if (/^\s*(export\s+)?(interface|type)\s+\w+/.test(line)) return 'объявления interface/type есть только в TypeScript. В JavaScript удалите их';
+  return null;
+}
+
 /** Человекочитаемые строки диагностики для вывода под ошибкой. */
 export function describeProblems(code: string, options: { syntax: boolean }): string[] {
   const lines: string[] = [];
@@ -119,6 +138,8 @@ export function describeProblems(code: string, options: { syntax: boolean }): st
       lines.push(`Ошибка синтаксиса: строка ${loc.line}, столбец ${loc.column}`);
       lines.push(`  ${source}`);
       lines.push(`  ${' '.repeat(Math.max(0, loc.column - 1))}^`);
+      const ts = typescriptHint(source);
+      if (ts) lines.push(`Похоже на синтаксис TypeScript: ${ts}. Упражнения выполняются как обычный JavaScript.`);
     }
   }
   const suspicious = findSuspiciousChars(code);
