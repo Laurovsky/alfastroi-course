@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+# Один прогон на ветку: новый пуш отменяет предыдущий незавершённый
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server-unit:
+    name: Server · typecheck + unit (чистая логика)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # vitest не тайпчекает — tsc отдельным шагом
+      - run: npm run typecheck -w server
+      - run: npm test -w server
+      - name: Test isolated pilot secret installer
+        run: node --test infra/deploy/set-onec-pilot-token.test.mjs
+
+  server-db:
+    name: Server · integration (PostgreSQL 17)
+    runs-on: ubuntu-latest
+    env:
+      ALFASTROI_TEST_DB_URL: postgres://postgres@127.0.0.1:55439/alfastroi_test_ci
+      CI_POSTGRES_CONTAINER: alfastroi-ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Upgrade regression loads the real pre-103 schema from Git history.
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Backup provenance requires inet_server_addr() to be loopback. A bridge
+      # container's published port still reports its internal non-loopback IP.
+      - name: Start loopback PostgreSQL 17
+        run: |
+          docker run --detach --name "$CI_POSTGRES_CONTAINER" --label alfastroi.ci=true --network host \
+            -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=alfastroi_test_ci \
+            postgres:17-alpine -c listen_addresses=127.0.0.1 -c port=55439
+          for attempt in {1..30}; do
+            if docker exec "$CI_POSTGRES_CONTAINER" pg_isready -q -h 127.0.0.1 -p 55439 -U postgres -d alfastroi_test_ci; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs "$CI_POSTGRES_CONTAINER"
+          exit 1
+      - run: npm run test:db -w server
+      - name: Remove test PostgreSQL
+        if: always()
+        run: |
+          if [ "$(docker inspect --format '{{ index .Config.Labels "alfastroi.ci" }}' "$CI_POSTGRES_CONTAINER" 2>/dev/null)" = true ]; then
+            docker rm --force "$CI_POSTGRES_CONTAINER"
+          fi
+
+  client:
+    name: Client · lint + test + build
+    runs-on: ubuntu-latest
+    # shared/api/supabase.ts бросает на импорте без этих переменных, поэтому без
+    # них падают юнит- и браузерные тесты, которые сами в сеть не ходят. Значения
+    # заведомо фиктивные: нужен лишь валидный URL для createClient. Production
+    # собирается отдельным шагом deploy-production.yml с настоящими секретами.
+    env:
+      VITE_SUPABASE_URL: https://ci-placeholder.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check -w client
+      - run: npm run lint:styles -w client
+      - run: npm run lint -w client
+      - run: npm run lint:gravity -w client
+      - run: npm run lint:architecture -w client
+      - run: npm run test:tooling -w client
+      - run: npm run test:context
+      - run: npm test -w client
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:layout -w client
+      - run: npm run test:additional-works -w client
+      - run: npm run test:analysis-editor -w client
+      - run: npm run test:execution-editor -w client
+      - name: Retain execution-editor failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-editor-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: client/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+      - run: npm run test:monthly-analysis -w client
+      # build включает tsc -b (typecheck клиента)
+      - run: npm run build -w client

@@ -1,0 +1,63 @@
+# Альфастрой: курс по коду
+
+Интерактивный онлайн-курс, который разбирает код **Альфастрой** (строительный документооборот на React, Express и PostgreSQL) от простого к сложному: чистые функции → TDD → слои бэкенда → база данных → ООП и машина состояний → состояние на клиенте → Feature-Sliced Design → CI/CD и финальный проект.
+
+- **9 модулей, 25 уроков**, ~8 часов.
+- **16 упражнений**: код пишется в браузере, тесты запускаются в Web Worker (красный/зелёный, как в TDD).
+- **Квизы** с объяснениями и **интерактивы**: машина согласования, гонка двух пользователей (optimistic locking), пошаговая трассировка HTTP-запроса, линтер границ FSD.
+- Все фрагменты кода — **настоящие файлы проекта**, которые вырезаются по маркерам, а не копируются в текст урока руками.
+- Прогресс хранится в `localStorage`, сервера нет.
+
+## Запуск
+
+```bash
+npm ci
+npm run dev        # http://localhost:5173
+npm test           # тесты платформы и контента
+npm run typecheck
+npm run build      # статический сайт в dist/
+```
+
+## Как устроен проект
+
+Сам курс построен по Feature-Sliced Design, так же как клиент Альфастрой:
+
+```text
+src/
+├── app/        роутер (HashRouter для GitHub Pages), стили
+├── pages/      home, lesson, not-found
+├── widgets/    lesson-view (MDX + компоненты), course-sidebar
+├── features/   run-exercise, take-quiz, check-fsd-import,
+│               explore-workflow, simulate-version-race, trace-request
+├── entities/   course (учебный план), exercise, progress (Zustand + persist)
+├── shared/     lib (mini-test, excerpt, snippets, storage), ui (code, callout, diagram)
+└── content/    lessons/*.mdx, exercises/*.ts — данные курса
+snippets/       копии исходников Альфастрой (только код) + manifest.json
+```
+
+### Контент
+
+- **Урок** — `src/content/lessons/<id>.mdx`, порядок задаётся в `src/entities/course/model/curriculum.ts`.
+- В MDX без импортов доступны `<Source path from to mark />`, `<Quiz />`, `<Exercise id />`, `<Callout />`, `<Diagram />` и интерактивы.
+- **Упражнение** — объект в `src/content/exercises/*.ts`: условие, заготовка, эталон, подсказки, тесты.
+
+### Тесты курса
+
+Платформа тоже разработана через тесты:
+
+- эталонное решение каждого упражнения проходит все тесты, а заготовка падает хотя бы на одном;
+- у каждого урока из учебного плана есть файл, все `<Source>` находят свой фрагмент, все `<Exercise>` существуют, id квизов уникальны;
+- в бандл попадают все файлы из `snippets/manifest.json`.
+
+### Обновление фрагментов кода
+
+```bash
+npm run sync-snippets -- ../alfastroi   # путь к checkout Альфастрой
+npm test                                # покажет, если маркер фрагмента «уехал»
+```
+
+Скрипт копирует файлы из `snippets/manifest.json` и заменяет production-хосты нейтральными (`api.example.com`). Секреты, переменные окружения и инфраструктура в курс не попадают.
+
+## Деплой
+
+`.github/workflows/pages.yml`: на каждый push в `main` запускаются typecheck, тесты и сборка, затем сайт публикуется на GitHub Pages. Один раз нужно включить в репозитории **Settings → Pages → Source: GitHub Actions**.

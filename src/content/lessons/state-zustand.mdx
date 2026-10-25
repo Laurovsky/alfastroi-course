@@ -1,0 +1,96 @@
+## Два вида состояния
+
+Самая частая ошибка во фронтенд-архитектуре — смешивать **данные сервера** и **состояние интерфейса**.
+
+| | Server state | UI state |
+|---|---|---|
+| Что это | Список подрядчиков, позиции анализа, расценки | Открыта ли модалка, какая вкладка, что выделено |
+| Кто владеет | Сервер; клиент держит **кэш** | Только этот экран |
+| Может устареть | Да — другой пользователь изменил | Нет |
+| Где хранить | Zustand-стор домена | `useState` / `useReducer` в компоненте |
+
+<Callout kind="rule" title="Правило проекта §12">
+Серверные данные — в Zustand; `useState` — только для UI. Сторы живут в `entities/<домен>/model` (например, `entities/contractor/model/contractorsStore.ts`), а изолированный стор редактора выполнения — внутри своего виджета.
+</Callout>
+
+## Zustand за одну минуту
+
+Стор — это хук, созданный функцией `create`. Внутри — данные и функции-действия, которые меняют данные через `set`:
+
+<Source path="client/src/entities/contractor/model/contractorsStore.ts" from="export const useContractorsStore" to="fetchContractorRateSets: async" mark={['set({ loading: true })', 'translateError']} />
+
+Обратите внимание на шаблон действия загрузки:
+
+1. `set({ loading: true })` — интерфейс покажет индикатор.
+2. Запрос через `apiFetch`.
+3. Успех → данные в стор, `error: null`.
+4. Ошибка → **не бросаем дальше**, а кладём понятный текст в `store.error` (через `translateError` — перевод технических ошибок на русский).
+5. `finally` — снимаем `loading`.
+
+Компонент подписывается на нужные поля селектором:
+
+```tsx
+const contractors = useContractorsStore((s) => s.contractors)
+const fetchContractors = useContractorsStore((s) => s.fetchContractors)
+```
+
+## SWR: сначала кэш, потом свежие данные
+
+**Stale-While-Revalidate** — показать то, что есть в кэше, сразу, а свежие данные загрузить в фоне и подменить. Приоритет отображения в проекте:
+
+```ts
+cache.length > 0 ? render(cache) : loading ? 'Загрузка' : 'Пусто'
+```
+
+Пользователь не видит спиннер при каждом возвращении на страницу. А чтобы кэш не протухал, данные перечитываются при возвращении во вкладку:
+
+<Source path="client/src/shared/lib/use-refetch-on-focus/useRefetchOnFocus.ts" from="export function useRefetchOnFocus" mark={['visibilitychange', 'minIntervalMs) return']} />
+
+Throttle 10 секунд: переключились туда-обратно за секунду — повторного запроса не будет.
+
+<Callout kind="danger" title="Грабли: isMutatingRef">
+`window.confirm('Удалить?')` уводит фокус из окна, а после закрытия диалога фокус возвращается — `useRefetchOnFocus` стреляет и **перечитывает данные до того, как удаление дошло до сервера**. Удалённая строка «воскресает». Решение из проекта: `isMutatingRef = useRef(false)`, ставить `true` **до** confirm, сбрасывать в `finally`, а в `loadAll` проверять флаг.
+</Callout>
+
+## Стабильные селекторы
+
+Zustand перерисовывает компонент, когда селектор вернул **другую ссылку** (сравнение `Object.is`). Ловушка:
+
+```ts
+// ❌ новый [] на каждом вызове → компонент перерисовывается бесконечно
+const rates = useRatesStore((s) => s.byAnalysis[id] ?? [])
+
+// ✅ одна и та же ссылка
+const EMPTY: Rate[] = []
+const rates = useRatesStore((s) => s.byAnalysis[id] ?? EMPTY)
+```
+
+Для составных выборок (`{ a: s.a, b: s.b }`) — `useShallow`, который сравнивает поля, а не ссылку объекта.
+
+<Exercise id="stable-selector" />
+
+<Quiz
+  id="state-where"
+  question="Где хранить «какая строка таблицы раскрыта»?"
+  options={[
+    'В Zustand-сторе домена — вдруг пригодится',
+    'В useState/локальном хуке экрана — это UI state',
+    'В localStorage',
+    'На сервере',
+  ]}
+  answer={1}
+  explain="Раскрытие строки не приходит с сервера и не нужно другим экранам. В проекте для этого есть useAnalysisEditorUiState — состояние живёт в экземпляре редактора."
+/>
+
+<Quiz
+  id="state-errors"
+  question="Почему действия стора ловят ошибку и кладут её в store.error, а не пробрасывают?"
+  options={[
+    'Чтобы скрыть ошибки',
+    'Компонент рендерит error декларативно (role="alert"), а необработанный reject в обработчике события никто бы не показал',
+    'Zustand не поддерживает исключения',
+    'Так быстрее',
+  ]}
+  answer={1}
+  explain="Ошибка становится частью состояния: её можно показать, сбросить и протестировать. Пробрасываются только те ошибки, которые вызывающий код должен обработать (например, 409 для ConflictDialog)."
+/>

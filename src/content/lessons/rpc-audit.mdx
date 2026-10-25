@@ -1,0 +1,68 @@
+## Зачем бизнес-логика в базе
+
+Отправка пакета выполнения на согласование — это несколько шагов: проверить статус, перевести completions в `pending_field_approval`, прикрепить черновики актов, вставить строки назначений согласующих, записать аудит. Если сервер упадёт после третьего шага, данные останутся **наполовину изменёнными**.
+
+**Транзакция** решает это: либо все шаги, либо ни одного. В Альфастрой многошаговые операции пишутся как **PL/pgSQL-функции** (RPC), а сервер вызывает их одной командой `supabase.rpc('fn', params)`. Любая ошибка внутри функции — автоматический откат.
+
+<Callout kind="rule" title="Правило проекта §4">
+Multi-step — внутри Postgres-функции. Простые single-table UPDATE — напрямую с version-check (`conditionalUpdate`).
+</Callout>
+
+## Анатомия RPC-функции
+
+Разберём `rename_analysis` целиком:
+
+<Source path="sql/101_rename_analysis.sql" mark={['SECURITY DEFINER', 'FOR UPDATE', "'CONFLICT:", "'FORBIDDEN:", 'INSERT INTO audit_log', 'REVOKE']} />
+
+Построчно:
+
+1. `SECURITY DEFINER` — функция выполняется с правами владельца, а не вызывающего. Поэтому её вызов надо строго ограничить (последние строки — `REVOKE`/`GRANT`, урок 4.3).
+2. `SET search_path = public` — защита от подмены таблиц через `search_path`.
+3. **Проверка роли** — второй рубеж после `requireRole`.
+4. **Валидация** — тоже повтор Zod-проверки: функцию могут вызвать не только из этого роута.
+5. `SELECT … FOR UPDATE` с `version = p_prev_version` — блокировка строки и проверка версии. Если версия не совпала — `RAISE EXCEPTION 'CONFLICT: …'`.
+6. **CTE** `before_state` → `updated` → `INSERT INTO audit_log`: снимок «до», обновление, запись аудита — одной командой.
+
+## Соглашение об ошибках
+
+Функция сообщает о бизнес-ошибке префиксом в тексте исключения. Сервер распознаёт префикс и превращает его в класс:
+
+<Source path="server/src/lib/rpcRunner.ts" from="export async function runRawRpc" />
+
+## Audit log: история, которую нельзя переписать
+
+`audit_log` — append-only таблица: в неё только добавляют.
+
+```text
+audit_log: entity_type, entity_id, action, before_state (JSONB), after_state (JSONB),
+           changed_by, batch_id, source_action, created_at
+```
+
+- `action` строго `'create' | 'update' | 'delete'` (CHECK). Смысл действия — в `source_action` (`analysis_rename`, `rate_update`, …).
+- `before_state`/`after_state` — полные JSON-снимки строки. Из них интерфейс показывает «было → стало» (`<s>1000</s> 1500`).
+- `batch_id` группирует связанные изменения одной операции.
+
+<Callout kind="rule" title="Audit-first (§3)">
+Каждый новый write-путь обязан писать аудит **в той же транзакции**. Аудит, записанный отдельным запросом после основного, может потеряться при сбое — и история будет врать.
+</Callout>
+
+<Quiz
+  id="rpc-transaction"
+  question="RPC вставила строки approvals, а на шаге записи аудита упала с ошибкой. Что останется в базе?"
+  options={[
+    'Строки approvals без аудита',
+    'Ничего: вся функция — одна транзакция, изменения откатятся',
+    'Только аудит',
+    'Зависит от сервера',
+  ]}
+  answer={1}
+  explain="Именно ради этого многошаговая логика живёт в функции. Сервер получит ошибку, а данные останутся консистентными."
+/>
+
+<Quiz
+  id="rpc-action"
+  question="Нужно залогировать «отзыв отправки на согласование». Что пишем в audit_log.action?"
+  options={["'recall'", "'update', а в source_action — 'recall_submission'", "'delete'", 'Ничего, отзыв не логируется']}
+  answer={1}
+  explain="CHECK разрешает только create/update/delete — это тип изменения строки. Бизнес-смысл передаётся отдельным полем source_action."
+/>

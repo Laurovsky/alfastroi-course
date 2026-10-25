@@ -1,0 +1,51 @@
+TypeScript в проекте работает в strict-режиме. Самые полезные его возможности для бизнес-логики — **типы-объединения** (union types): они описывают конечный набор значений и позволяют компилятору проверить, что вы обработали каждое.
+
+## Union из строковых литералов
+
+Строка ТКП бывает трёх видов. Вместо `string` проект пишет:
+
+```ts
+type RowType = 'section' | 'work' | 'material'
+```
+
+Теперь `deriveRowType(row) === 'secton'` — ошибка компиляции (опечатка), а не тихий баг. Так же описаны статусы и роли:
+
+<Source path="server/src/modules/approvals/workflow.ts" from="export type Role" to="export type WorkflowAction" />
+
+<Callout kind="rule" title="Синхронизация трёх мест">
+Набор значений живёт в трёх местах: TypeScript-тип, `CHECK` в базе и Zod-схема валидации. Если расширить один (например, добавить `additional_act` в `entity_type`) и забыть Zod, запрос получит 400. Это реальный инцидент из раздела «Грабли» CLAUDE.md.
+</Callout>
+
+## Discriminated union: тип с «меткой»
+
+Когда объекты разных видов обрабатываются одним кодом, им дают общее поле-метку. В `ApprovalWorkflow` это `entityType`:
+
+<Source path="server/src/modules/approvals/workflow.ts" from="export type WorkflowContext" to="export type WorkflowContext" />
+
+<Source path="server/src/modules/approvals/workflow.ts" from="getAllowedActions(ctx: WorkflowContext)" />
+
+Внутри ветки `if (ctx.entityType === 'execution_analysis')` TypeScript **сужает** тип: `ctx` — это `AnalysisContext`, и у него доступно поле `hasContent`, которого нет у пакета.
+
+## Классификация строки ТКП
+
+Реальная функция, которая решает, чем является строка сметы:
+
+<Source path="server/src/modules/analyses/constructor/deriveRowType.ts" from="export function deriveRowType" />
+
+Прочтите JSDoc: раньше эта эвристика была скопирована в **шесть мест** в чуть разных вариантах, и одна из копий не делала `trim()`. Строка с кодом из пробелов в одном месте считалась работой, в другом — материалом. Решение — **одна каноническая функция** и тест на ней:
+
+<Source path="server/src/modules/analyses/constructor/deriveRowType.test.ts" from="it('unit без code → material'" />
+
+<Callout kind="tip" title="DRY для правил, а не для букв">
+Принцип «не повторяйся» важнее всего для **бизнес-правил**: если правило описано дважды, рано или поздно копии разойдутся. Повтор похожего, но независимого кода — меньшее зло.
+</Callout>
+
+<Exercise id="derive-row-type" />
+
+<Quiz
+  id="union-narrowing"
+  question="Внутри ветки if (ctx.entityType === 'completion_batch') какое поле гарантированно есть у ctx?"
+  options={['hasContent', 'submittedBy', 'createdBy', 'Никакое — нужно приводить тип через as']}
+  answer={1}
+  explain="TypeScript сужает union по метке до BatchContext, а у него есть submittedBy. Приведение через as не нужно и даже вредно: оно отключает проверку."
+/>

@@ -1,0 +1,74 @@
+## Браузер тоже ходит в базу
+
+Клиент Альфастрой использует Supabase для входа и некоторых чтений. Значит, в браузере есть публичный ключ, и любой пользователь может открыть DevTools и отправить запрос к базе **напрямую**, минуя сервер. Защита должна быть в самой базе.
+
+## Row Level Security (RLS)
+
+RLS — политики на уровне строк: Postgres сам добавляет условие к каждому запросу. Упрощённый пример:
+
+```sql
+ALTER TABLE execution_analyses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY analyses_select ON execution_analyses
+  FOR SELECT TO authenticated
+  USING (has_access_to_project(project_id));
+```
+
+Пользователь увидит только анализы своих проектов, даже если запросит `SELECT * FROM execution_analyses`. Хелперы (`my_role()`, `has_access_to_project(uuid)`) — функции `STABLE SECURITY DEFINER`, которые используют политики.
+
+<Callout kind="tip" title="Производительность RLS">
+`auth.uid()` в политике вычисляется **для каждой строки**. Обёртка `(select auth.uid())` превращает его в initplan — одно вычисление на запрос. Миграция 062b ускорила так девять политик.
+</Callout>
+
+## Права на функции: главная грабля проекта
+
+Write-RPC (`update_rate`, `submit_for_approval`…) объявлены `SECURITY DEFINER` — они обходят RLS и проверяют права сами. Если браузер сможет вызвать такую функцию напрямую, он обойдёт сервер: idempotency, rate-limit, логи.
+
+Поэтому каждая write-функция заканчивается так:
+
+<Source path="sql/101_rename_analysis.sql" from="REVOKE EXECUTE" to="GRANT EXECUTE" />
+
+Почему **три** роли, а не одна `PUBLIC`? На этом проекте настроены default privileges: каждая новая функция получает **прямой** грант `EXECUTE` ролям `authenticated` и `anon`. `REVOKE … FROM PUBLIC` снимает только грант через `PUBLIC`, а прямые остаются.
+
+<Callout kind="danger" title="Инциденты, из которых выросло правило">
+- **2026-06-16.** Залипшая вкладка браузера флудила `update_rate` ~2700 раз в секунду напрямую в базу — CPU 98%. Ответ: миграция 064, `REVOKE` на всех write-RPC.
+- **2026-06-19.** После миграции 066 выяснилось: `REVOKE FROM PUBLIC` не закрыл функции — прямые гранты остались. Плюс `set_work_item_allocations` был открыт браузеру с миграций 060/061. Ответ: миграция 067 и правило «все три роли».
+- **Обратная гоча (мигр. 093).** У старых функций, наоборот, `anon` получал доступ через `PUBLIC`, и `REVOKE FROM anon` в одиночку не помогал. Вывод: резать всегда `FROM PUBLIC, authenticated, anon`.
+</Callout>
+
+И обязательная проверка после деплоя:
+
+```sql
+SELECT has_function_privilege('authenticated', 'rename_analysis(uuid,text,integer,uuid)', 'EXECUTE'); -- false
+SELECT has_function_privilege('anon',          'rename_analysis(uuid,text,integer,uuid)', 'EXECUTE'); -- false
+```
+
+## Чему учат постмортемы
+
+В `docs/superpowers/specs/` лежат постмортемы — разборы инцидентов. Их структура: что случилось, как заметили, причина, что исправили, **какое правило добавили**, чтобы не повторилось. Многие правила из CLAUDE.md — это сжатые выводы постмортемов. Читать их — самый быстрый способ получить опыт, который команда заработала дорогой ценой.
+
+<Quiz
+  id="sec-revoke"
+  question="Вы пишете новую write-RPC. Какой набор строк правильный для этого проекта?"
+  options={[
+    'REVOKE EXECUTE … FROM PUBLIC;',
+    'REVOKE EXECUTE … FROM anon;',
+    'REVOKE EXECUTE … FROM PUBLIC, authenticated, anon; GRANT EXECUTE … TO service_role;',
+    'Ничего — SECURITY DEFINER и так защищает',
+  ]}
+  answer={2}
+  explain="Default privileges дают прямые гранты authenticated и anon, а старые функции наследуют доступ через PUBLIC. Закрываем все три и явно открываем только серверу."
+/>
+
+<Quiz
+  id="sec-definer"
+  question="Что означает SECURITY DEFINER?"
+  options={[
+    'Функцию может вызвать только её владелец',
+    'Функция выполняется с правами владельца, а не вызывающего — поэтому важно ограничить, кто может её вызвать',
+    'Функция шифрует данные',
+    'Функция не может менять таблицы',
+  ]}
+  answer={1}
+  explain="Это как sudo: мощно и опасно. Функция обходит RLS, поэтому проверяет права сама, а EXECUTE оставлен только service_role."
+/>

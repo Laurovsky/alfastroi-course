@@ -1,0 +1,66 @@
+Альфастрой — в основном функциональный код. Но архитектурные правила явно выделяют места для классов: парсер смет `TKPParser`, машина согласования `ApprovalWorkflow` и (пока в планах) экспортёр документов `DocumentExporter`. Разберёмся, почему именно там.
+
+## Задача: разные форматы смет
+
+Сметы приходят в разных форматах: выгрузка 1С (ПИК), шаблон Sminex, в будущем PDF. Форматы различаются **разбором файла**, но дальше обработка общая: построить иерархию строк, найти системы, определить тип строки.
+
+## Абстрактный класс
+
+<Source path="server/src/modules/analyses/constructor/parsers/TKPParser.ts" from="export abstract class TKPParser" to="abstract parse(" />
+
+- `abstract class` нельзя создать напрямую (`new TKPParser()` — ошибка компиляции).
+- `abstract parse(...)` — метод **без реализации**: каждый формат обязан его написать.
+- `protected` методы (`buildHierarchy`, `detectSystems`, `detectRowType`) — общая логика, доступная наследникам, но не внешнему коду.
+
+<Source path="server/src/modules/analyses/constructor/parsers/TKPParser.ts" from="protected buildHierarchy" />
+
+Наследники — `Xlsx1cTKPParser` (выгрузка 1С) и `SminexXlsxParser` — реализуют `parse` по-своему, а `buildHierarchy` и `detectSystems` получают бесплатно. В тесте `TKPParser.test.ts` есть даже минимальный `class TestParser extends TKPParser` — так тестируют общую логику абстрактного класса.
+
+## Принцип Open/Closed
+
+**Открыт для расширения, закрыт для изменения.** Новый формат сметы (PDF) — это **новый класс** `PdfTKPParser extends TKPParser`. Существующие парсеры и код, который их вызывает, не меняются. Вызывающий код работает с базовым типом:
+
+```ts
+async function importEstimate(parser: TKPParser, file: Buffer) {
+  const rows = await parser.parse(file) // какой именно формат — не важно
+  // ... дальше общий пайплайн
+}
+```
+
+<Callout kind="info" title="Абстрактный класс или интерфейс?">
+**Интерфейс** — только контракт («у объекта есть метод parse»). **Абстрактный класс** — контракт плюс общая реализация. Здесь у форматов много общего кода, поэтому класс. Если бы общего кода не было, хватило бы `interface TKPParser { parse(...): Promise<RawRow[]> }` и функций.
+</Callout>
+
+## Общий префикс кодов
+
+`detectSystems` группирует строки по заголовкам секций и для каждой секции ищет **корень системы** — общий префикс кодов всех её работ:
+
+<Source path="server/src/modules/analyses/constructor/parsers/TKPParser.ts" from="function findCommonPrefix" />
+
+<Exercise id="find-common-prefix" />
+
+<Quiz
+  id="ocp-new-format"
+  question="Нужно поддержать сметы в CSV. Что меняем по принципу Open/Closed?"
+  options={[
+    'Добавляем if (format === "csv") в XlsxParser',
+    'Создаём CsvTKPParser extends TKPParser и реализуем parse',
+    'Переписываем TKPParser',
+    'Конвертируем CSV в Excel на клиенте',
+  ]}
+  answer={1}
+  explain="Новый формат — новый класс. Существующие парсеры и их тесты не трогаем, риск регрессий минимален."
+/>
+
+<Quiz
+  id="ocp-protected"
+  question="Зачем buildHierarchy объявлен protected, а не public?"
+  options={[
+    'Чтобы он работал быстрее',
+    'Это деталь реализации пайплайна; внешний код должен вызывать parse, а не собирать иерархию вручную',
+    'TypeScript требует',
+    'Чтобы его нельзя было тестировать',
+  ]}
+  answer={1}
+  explain="Узкий публичный API — меньше способов использовать класс неправильно и больше свободы менять внутренности."
+/>

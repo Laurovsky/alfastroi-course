@@ -1,0 +1,117 @@
+Альфастрой — **монорепозиторий**: клиент, сервер и общие типы лежат в одном git-репозитории и связаны через npm workspaces. Это значит: один `npm ci` в корне ставит зависимости всем частям, а изменение контракта API видно и серверу, и клиенту в одном коммите.
+
+## Верхний уровень
+
+```text
+alfastroi/
+├── client/            React-приложение (Vite, Zustand, Gravity UI)
+├── server/            API на Express + TypeScript
+├── packages/types/    @alfastroi/types — общие DTO клиента и сервера
+├── sql/               история миграций 001…101 (полные тела функций)
+├── supabase/          новые managed-миграции + production baseline
+├── e2e/               сквозные тесты Playwright
+├── docs/              архитектура, спеки, постмортемы
+├── infra/             скрипты деплоя
+├── .github/workflows/ CI, деплой, ночной бэкап
+└── CLAUDE.md          контекст проекта: правила §§1–14 и грабли
+```
+
+Корневой `package.json` объявляет три workspace:
+
+```json
+{
+  "workspaces": ["client", "server", "packages/types"]
+}
+```
+
+Команды адресуются конкретному пакету флагом `-w`: `npm test -w server`, `npm run build -w client`.
+
+## Три слоя системы
+
+<Diagram
+  nodes={[
+    { title: 'client', note: 'браузер: UI, состояние, вызовы API' },
+    { title: 'server', note: 'Express: права, workflow, оркестрация' },
+    { title: 'PostgreSQL (Supabase)', note: 'данные, транзакции, RLS', tone: 'ok' },
+  ]}
+/>
+
+- **client** никогда не пишет в базу напрямую. Все изменения идут через API сервера.
+- **server** — единственный «authority»: он проверяет права и статусы, вызывает функции Postgres.
+- **PostgreSQL** хранит данные и выполняет многошаговые операции внутри транзакций (RPC-функции).
+
+<Callout kind="info">
+Supabase — это PostgreSQL плюс готовые сервисы: аутентификация (JWT), хранилище файлов (Storage) и REST-обёртка над таблицами. Сервер использует ключ `service_role` (полный доступ), а браузер — только публичный ключ, ограниченный правилами RLS.
+</Callout>
+
+## Сервер: модуль = папка домена
+
+```text
+server/src/
+├── index.ts            собирает роуты всех модулей
+├── db/supabase.ts      клиент с service_role
+├── middleware/         auth, idempotency, errorHandler, rateLimit, upload
+├── lib/                versionCheck, rpcRunner, withTimeout, auditWriter, zodHttp
+└── modules/
+    ├── catalog/        справочник работ
+    ├── rates/          наборы расценок
+    ├── analyses/       анализы (+ parsers, merge, readModels, useCases)
+    ├── completions/    выполнение
+    ├── approvals/      согласование (ApprovalWorkflow)
+    └── …
+```
+
+Внутри модуля — одинаковые файлы: `routes.ts` (HTTP), `validators.ts` (Zod-схемы), `service.ts` (логика), `queries.ts` (чтение из базы), `types.ts`. Модули общаются **только через service.ts** друг друга.
+
+## Клиент: слои Feature-Sliced Design
+
+```text
+client/src/
+├── app/       инициализация, роутер, провайдеры
+├── pages/     страницы маршрутов
+├── widgets/   крупные блоки экрана (analysis-editor, execution-editor)
+├── features/  пользовательские действия (import-analysis-tkp, select-approvers)
+├── entities/  бизнес-сущности (catalog, analysis, work-item)
+├── shared/    инфраструктура без бизнес-знаний (api, lib, ui)
+└── components/, store/, lib/   legacy — мигрируется постепенно
+```
+
+FSD — тема модуля 7. Пока запомните главное: зависимости идут только сверху вниз, от `app` к `shared`.
+
+## Общий пакет типов
+
+Клиент и сервер обмениваются JSON. Чтобы форма этого JSON не разъезжалась, общие DTO лежат в `packages/types` — чистый TypeScript без зависимостей:
+
+<Source path="packages/types/src/formatDisplayName.ts" />
+
+Эту функцию импортируют и сервер (подписи в Excel-экспорте), и клиент (таблицы): `import { formatDisplayName } from '@alfastroi/types'`. Одна реализация — одно поведение.
+
+<Quiz
+  id="repo-types"
+  question="Почему formatDisplayName лежит в packages/types, а не в client/src/shared?"
+  options={[
+    'Так короче путь импорта',
+    'Её используют и клиент, и сервер — общий код живёт в общем пакете',
+    'В shared нельзя класть функции',
+    'Потому что это тип, а не функция',
+  ]}
+  answer={1}
+  explain="shared — нижний слой только клиента. Код, нужный обеим сторонам, выносится в workspace-пакет, иначе появится две копии, которые со временем начнут различаться."
+/>
+
+## SQL и миграции
+
+Схема базы меняется только миграциями — SQL-файлами, которые применяются по порядку. История `001…101` лежит в `sql/`, новые — в `supabase/migrations/` с префиксом-датой. Миграция — это не только таблицы: в ней живут функции (RPC), триггеры и права доступа.
+
+<Quiz
+  id="repo-db-write"
+  question="Где в Альфастрой проверяется, что прораб не может согласовать собственный пакет?"
+  options={[
+    'Только в React-компоненте (кнопка скрыта)',
+    'На сервере (ApprovalWorkflow) и в SQL-функции — интерфейс лишь прячет кнопку',
+    'Нигде — доверяем пользователям',
+    'В браузере через RLS-политику',
+  ]}
+  answer={1}
+  explain="Это принцип defense in depth: проверка на сервере и повторная — в базе. Скрытая кнопка — удобство, а не защита."
+/>
