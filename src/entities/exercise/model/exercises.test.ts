@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runSuite } from '@/shared/lib/mini-test';
+import { findSuspiciousChars, runSuite } from '@/shared/lib/mini-test';
 import { listExercises } from './registry';
 
 /**
@@ -16,6 +16,11 @@ describe.each(listExercises().map((e) => [e.id, e] as const))('упражнен�
   it('заготовка не проходит хотя бы один тест', async () => {
     const result = await runSuite(exercise.starter, exercise.exports, exercise.tests);
     expect(result.passed).toBe(false);
+  });
+
+  it('в эталоне и заготовке нет невидимых и «похожих» символов', () => {
+    expect(findSuspiciousChars(exercise.solution)).toEqual([]);
+    expect(findSuspiciousChars(exercise.starter)).toEqual([]);
   });
 
   it('есть условие, подсказки и тесты', () => {

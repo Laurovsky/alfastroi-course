@@ -87,7 +87,10 @@ export function Exercise({ id }: { id: string }) {
       {result && (
         <div className="tests" role="status" aria-live="polite">
           {result.compileError ? (
-            <p className="tests__compile">⛔ {result.compileError}</p>
+            <>
+              <p className="tests__compile">⛔ {result.compileError}</p>
+              {result.diagnostics.length > 0 && <pre className="tests__diagnostics">{result.diagnostics.join('\n')}</pre>}
+            </>
           ) : (
             <>
               <p className={`tests__summary ${result.passed ? 'tests__summary--ok' : 'tests__summary--fail'}`}>

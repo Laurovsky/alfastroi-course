@@ -1,3 +1,4 @@
+import { describeProblems } from './diagnose';
 import { expect, type Expect } from './expect';
 
 /** Один тест упражнения. `api` — то, что экспортировал код ученика. */
@@ -15,6 +16,8 @@ export interface TestResult {
 export interface SuiteResult {
   /** Ошибка компиляции/выполнения самого кода (синтаксис, ReferenceError на верхнем уровне). */
   compileError: string | null;
+  /** Подсказки к compileError: место синтаксической ошибки, подозрительные символы. Пусто, если ошибки нет. */
+  diagnostics: string[];
   results: TestResult[];
   passed: boolean;
 }
@@ -55,13 +58,16 @@ export async function runSuite(code: string, exportNames: string[], tests: TestC
   try {
     api = evaluateModule(code, exportNames);
   } catch (err) {
-    return { compileError: message(err), results: [], passed: false };
+    const syntax = err instanceof Error && err.name === 'SyntaxError';
+    return { compileError: message(err), diagnostics: describeProblems(code, { syntax }), results: [], passed: false };
   }
 
   const missing = exportNames.filter((name) => api[name] === undefined);
   if (missing.length > 0) {
     return {
       compileError: `Не найдено объявление: ${missing.join(', ')}. Объявите их на верхнем уровне (function/class/const).`,
+      // Частая причина «не найдено» — кириллическая буква в имени, которую не видно глазом.
+      diagnostics: describeProblems(code, { syntax: false }),
       results: [],
       passed: false,
     };
@@ -76,5 +82,5 @@ export async function runSuite(code: string, exportNames: string[], tests: TestC
       results.push({ name: test.name, passed: false, error: message(err) });
     }
   }
-  return { compileError: null, results, passed: results.length > 0 && results.every((r) => r.passed) };
+  return { compileError: null, diagnostics: [], results, passed: results.length > 0 && results.every((r) => r.passed) };
 }

@@ -12,7 +12,7 @@ export interface RunRequest {
 self.onmessage = async (event: MessageEvent<RunRequest>) => {
   const exercise = getExercise(event.data.exerciseId);
   if (!exercise) {
-    self.postMessage({ compileError: `Упражнение ${event.data.exerciseId} не найдено`, results: [], passed: false });
+    self.postMessage({ compileError: `Упражнение ${event.data.exerciseId} не найдено`, diagnostics: [], results: [], passed: false });
     return;
   }
   const result = await runSuite(event.data.code, exercise.exports, exercise.tests);

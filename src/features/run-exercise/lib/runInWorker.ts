@@ -13,6 +13,7 @@ export function runInWorker(exerciseId: string, code: string): Promise<SuiteResu
     const timer = setTimeout(() => {
       worker.terminate();
       resolve({
+        diagnostics: [],
         compileError: `Код выполнялся дольше ${HARD_TIMEOUT_MS / 1000} с и был остановлен. Возможно, бесконечный цикл?`,
         results: [],
         passed: false,
@@ -26,7 +27,7 @@ export function runInWorker(exerciseId: string, code: string): Promise<SuiteResu
     worker.onerror = (event) => {
       clearTimeout(timer);
       worker.terminate();
-      resolve({ compileError: event.message || 'Ошибка выполнения', results: [], passed: false });
+      resolve({ compileError: event.message || 'Ошибка выполнения', diagnostics: [], results: [], passed: false });
     };
     worker.postMessage({ exerciseId, code });
   });
